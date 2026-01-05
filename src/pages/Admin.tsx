@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useCart } from '@/contexts/CartContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Lock, ShoppingBag, Clock, Phone, User } from 'lucide-react';
+import { ArrowLeft, Lock, ShoppingBag, Clock, Phone, User, Check, Package, Euro, Users, TrendingUp, Volume2, VolumeX } from 'lucide-react';
+import { toast } from 'sonner';
 
 const ADMIN_PIN = "1620";
 
@@ -29,9 +29,12 @@ const Admin: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const previousOrderCountRef = useRef<number>(0);
   
   // Demo orders for display
-  const [orders] = useState<Order[]>([
+  const [orders, setOrders] = useState<Order[]>([
     {
       id: '1',
       customerName: 'Jean Dupont',
@@ -57,8 +60,88 @@ const Admin: React.FC = () => {
       total: 28,
       createdAt: new Date().toISOString(),
       status: 'ready'
+    },
+    {
+      id: '3',
+      customerName: 'Pierre Durand',
+      customerPhone: '06 45 67 89 01',
+      pickupTime: '18:45',
+      items: [
+        { name: 'Big Burger', quantity: 2, price: 9 },
+        { name: 'Tacos 1 Viande', quantity: 1, price: 8 },
+        { name: 'Bouteille', quantity: 1, price: 3 }
+      ],
+      total: 29,
+      createdAt: new Date().toISOString(),
+      status: 'completed'
     }
   ]);
+
+  // Initialize audio context
+  useEffect(() => {
+    audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    previousOrderCountRef.current = orders.length;
+    return () => {
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+      }
+    };
+  }, []);
+
+  // Play notification sound
+  const playNotificationSound = () => {
+    if (!soundEnabled || !audioContextRef.current) return;
+    
+    const ctx = audioContextRef.current;
+    
+    // Resume context if suspended (browser autoplay policy)
+    if (ctx.state === 'suspended') {
+      ctx.resume();
+    }
+    
+    // Create a pleasant notification sound
+    const oscillator1 = ctx.createOscillator();
+    const oscillator2 = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+    
+    oscillator1.connect(gainNode);
+    oscillator2.connect(gainNode);
+    gainNode.connect(ctx.destination);
+    
+    oscillator1.frequency.setValueAtTime(880, ctx.currentTime); // A5
+    oscillator2.frequency.setValueAtTime(1108.73, ctx.currentTime); // C#6
+    oscillator1.type = 'sine';
+    oscillator2.type = 'sine';
+    
+    gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+    
+    oscillator1.start(ctx.currentTime);
+    oscillator2.start(ctx.currentTime);
+    oscillator1.stop(ctx.currentTime + 0.5);
+    oscillator2.stop(ctx.currentTime + 0.5);
+  };
+
+  // Simulate new order arrival (for demo)
+  const simulateNewOrder = () => {
+    const newOrder: Order = {
+      id: String(orders.length + 1),
+      customerName: 'Nouveau Client',
+      customerPhone: '06 00 00 00 00',
+      pickupTime: '21:00',
+      items: [
+        { name: 'Mexicaine', quantity: 1, price: 25, size: 'Méga' }
+      ],
+      total: 25,
+      createdAt: new Date().toISOString(),
+      status: 'pending'
+    };
+    setOrders(prev => [newOrder, ...prev]);
+    playNotificationSound();
+    toast.success('🍕 Nouvelle commande reçue !', {
+      description: `Commande de ${newOrder.customerName}`
+    });
+  };
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,6 +151,19 @@ const Admin: React.FC = () => {
     } else {
       setError('Code PIN incorrect');
     }
+  };
+
+  const updateOrderStatus = (orderId: string, newStatus: Order['status']) => {
+    setOrders(prev => prev.map(order => 
+      order.id === orderId ? { ...order, status: newStatus } : order
+    ));
+    
+    const statusMessages = {
+      ready: 'Commande marquée comme prête',
+      completed: 'Commande marquée comme récupérée'
+    };
+    
+    toast.success(statusMessages[newStatus] || 'Statut mis à jour');
   };
 
   const getStatusColor = (status: Order['status']) => {
@@ -87,6 +183,13 @@ const Admin: React.FC = () => {
       default: return status;
     }
   };
+
+  // Calculate stats
+  const totalRevenue = orders.reduce((sum, order) => sum + order.total, 0);
+  const totalCustomers = orders.length;
+  const averageBasket = totalCustomers > 0 ? totalRevenue / totalCustomers : 0;
+  const pendingOrders = orders.filter(o => o.status === 'pending').length;
+  const readyOrders = orders.filter(o => o.status === 'ready').length;
 
   if (!isAuthenticated) {
     return (
@@ -141,6 +244,15 @@ const Admin: React.FC = () => {
           <div className="flex items-center gap-2">
             <Button
               variant="ghost"
+              size="icon"
+              className="text-primary-foreground hover:text-secondary"
+              onClick={() => setSoundEnabled(!soundEnabled)}
+              title={soundEnabled ? 'Désactiver le son' : 'Activer le son'}
+            >
+              {soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+            </Button>
+            <Button
+              variant="ghost"
               size="sm"
               className="text-primary-foreground hover:text-secondary"
               onClick={() => setIsAuthenticated(false)}
@@ -161,43 +273,89 @@ const Admin: React.FC = () => {
 
       {/* Content */}
       <main className="container mx-auto px-4 py-8">
+        {/* Demo button */}
+        <div className="mb-6">
+          <Button onClick={simulateNewOrder} variant="outline" size="sm">
+            🔔 Simuler une nouvelle commande
+          </Button>
+        </div>
+
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
           <Card>
             <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 gradient-gold rounded-full flex items-center justify-center">
-                  <ShoppingBag className="w-6 h-6 text-secondary-foreground" />
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 gradient-gold rounded-full flex items-center justify-center shrink-0">
+                  <Euro className="w-5 h-5 text-secondary-foreground" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Commandes du jour</p>
-                  <p className="text-2xl font-bold">{orders.length}</p>
+                  <p className="text-xs text-muted-foreground">Chiffre d'affaires</p>
+                  <p className="text-xl font-bold">{totalRevenue.toFixed(2)} €</p>
                 </div>
               </div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-yellow-500 rounded-full flex items-center justify-center">
-                  <Clock className="w-6 h-6 text-white" />
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center shrink-0">
+                  <Users className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">En préparation</p>
-                  <p className="text-2xl font-bold">{orders.filter(o => o.status === 'pending').length}</p>
+                  <p className="text-xs text-muted-foreground">Clients</p>
+                  <p className="text-xl font-bold">{totalCustomers}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
-                  <ShoppingBag className="w-6 h-6 text-white" />
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center shrink-0">
+                  <TrendingUp className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Prêtes à récupérer</p>
-                  <p className="text-2xl font-bold">{orders.filter(o => o.status === 'ready').length}</p>
+                  <p className="text-xs text-muted-foreground">Panier moyen</p>
+                  <p className="text-xl font-bold">{averageBasket.toFixed(2)} €</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 gradient-gold rounded-full flex items-center justify-center shrink-0">
+                  <ShoppingBag className="w-5 h-5 text-secondary-foreground" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Commandes</p>
+                  <p className="text-xl font-bold">{orders.length}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-yellow-500 rounded-full flex items-center justify-center shrink-0">
+                  <Clock className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">En préparation</p>
+                  <p className="text-xl font-bold">{pendingOrders}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center shrink-0">
+                  <Package className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Prêtes</p>
+                  <p className="text-xl font-bold">{readyOrders}</p>
                 </div>
               </div>
             </CardContent>
@@ -250,9 +408,38 @@ const Admin: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="text-right">
-                    <p className="text-sm text-muted-foreground">Total</p>
-                    <p className="text-2xl font-bold text-primary">{order.total.toFixed(2)} €</p>
+                  <div className="flex flex-col items-end gap-3">
+                    <div className="text-right">
+                      <p className="text-sm text-muted-foreground">Total</p>
+                      <p className="text-2xl font-bold text-primary">{order.total.toFixed(2)} €</p>
+                    </div>
+                    
+                    {/* Action buttons */}
+                    <div className="flex gap-2">
+                      {order.status === 'pending' && (
+                        <Button
+                          size="sm"
+                          className="bg-green-500 hover:bg-green-600 text-white"
+                          onClick={() => updateOrderStatus(order.id, 'ready')}
+                        >
+                          <Check className="w-4 h-4 mr-1" />
+                          Prête
+                        </Button>
+                      )}
+                      {order.status === 'ready' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => updateOrderStatus(order.id, 'completed')}
+                        >
+                          <Package className="w-4 h-4 mr-1" />
+                          Récupérée
+                        </Button>
+                      )}
+                      {order.status === 'completed' && (
+                        <span className="text-sm text-muted-foreground italic">Terminée</span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </CardContent>
