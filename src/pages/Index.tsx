@@ -1,13 +1,32 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import React from 'react';
+import { Helmet } from 'react-helmet-async';
+import Header from '@/components/Header';
+import Hero from '@/components/Hero';
+import MenuSection from '@/components/MenuSection';
+import Footer from '@/components/Footer';
 
-const Index = () => {
+const Index: React.FC = () => {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
+    <>
+      <Helmet>
+        <title>Pizza Dorata | Click & Collect à Fleury-les-Aubrais</title>
+        <meta 
+          name="description" 
+          content="Commandez vos pizzas, burgers et tacos en ligne chez Pizza Dorata à Fleury-les-Aubrais. Click & Collect rapide et facile, sans attente !" 
+        />
+        <meta name="keywords" content="pizza, pizzeria, click and collect, fleury-les-aubrais, burger, tacos, livraison" />
+        <link rel="canonical" href="https://pizzadorata.fr" />
+      </Helmet>
+      
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <main className="flex-1">
+          <Hero />
+          <MenuSection />
+        </main>
+        <Footer />
       </div>
-    </div>
+    </>
   );
 };
 
