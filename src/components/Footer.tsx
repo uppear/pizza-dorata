@@ -76,10 +76,18 @@ const Footer: React.FC = () => {
 
       {/* Bottom bar */}
       <div className="border-t border-primary-foreground/20">
-        <div className="container mx-auto px-4 py-4">
-          <p className="text-center text-primary-foreground/60 text-sm">
+        <div className="container mx-auto px-4 py-4 flex flex-col md:flex-row items-center justify-between gap-2">
+          <p className="text-primary-foreground/60 text-sm">
             © {new Date().getFullYear()} Pizza Dorata - Tous droits réservés
           </p>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-primary-foreground/40 hover:text-primary-foreground/60 text-xs"
+            onClick={() => window.location.href = '/admin'}
+          >
+            Administration
+          </Button>
         </div>
       </div>
     </footer>
