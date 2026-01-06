@@ -5,143 +5,28 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, Lock, ShoppingBag, Clock, Phone, User, Check, Package, Euro, Users, TrendingUp, Volume2, VolumeX } from 'lucide-react';
 import { toast } from 'sonner';
+import { useOrders, Order } from '@/contexts/OrderContext';
 
 const ADMIN_PIN = "1620";
 
-interface Order {
-  id: string;
-  customerName: string;
-  customerPhone: string;
-  pickupTime: string;
-  items: Array<{
-    name: string;
-    quantity: number;
-    price: number;
-    size?: string;
-  }>;
-  total: number;
-  createdAt: string;
-  status: 'pending' | 'ready' | 'completed';
-}
-
 const Admin: React.FC = () => {
   const navigate = useNavigate();
+  const { orders, updateOrderStatus, soundEnabled, setSoundEnabled } = useOrders();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
-  const [soundEnabled, setSoundEnabled] = useState(true);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const previousOrderCountRef = useRef<number>(0);
-  
-  // Demo orders for display
-  const [orders, setOrders] = useState<Order[]>([
-    {
-      id: '1',
-      customerName: 'Jean Dupont',
-      customerPhone: '06 12 34 56 78',
-      pickupTime: '19:30',
-      items: [
-        { name: 'Royale', quantity: 2, price: 17, size: 'Sénior' },
-        { name: 'Tiramisu Maison', quantity: 1, price: 3.5 }
-      ],
-      total: 37.5,
-      createdAt: new Date().toISOString(),
-      status: 'pending'
-    },
-    {
-      id: '2',
-      customerName: 'Marie Martin',
-      customerPhone: '06 98 76 54 32',
-      pickupTime: '20:00',
-      items: [
-        { name: 'La Cannibale', quantity: 1, price: 25, size: 'Méga' },
-        { name: 'Canette 33cl', quantity: 2, price: 1.5 }
-      ],
-      total: 28,
-      createdAt: new Date().toISOString(),
-      status: 'ready'
-    },
-    {
-      id: '3',
-      customerName: 'Pierre Durand',
-      customerPhone: '06 45 67 89 01',
-      pickupTime: '18:45',
-      items: [
-        { name: 'Big Burger', quantity: 2, price: 9 },
-        { name: 'Tacos 1 Viande', quantity: 1, price: 8 },
-        { name: 'Bouteille', quantity: 1, price: 3 }
-      ],
-      total: 29,
-      createdAt: new Date().toISOString(),
-      status: 'completed'
-    }
-  ]);
+  const previousOrderCountRef = useRef<number>(orders.length);
 
-  // Initialize audio context
+  // Watch for new orders and show toast
   useEffect(() => {
-    audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-    previousOrderCountRef.current = orders.length;
-    return () => {
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
-      }
-    };
-  }, []);
-
-  // Play notification sound
-  const playNotificationSound = () => {
-    if (!soundEnabled || !audioContextRef.current) return;
-    
-    const ctx = audioContextRef.current;
-    
-    // Resume context if suspended (browser autoplay policy)
-    if (ctx.state === 'suspended') {
-      ctx.resume();
+    if (orders.length > previousOrderCountRef.current && isAuthenticated) {
+      const latestOrder = orders[0];
+      toast.success('🍕 Nouvelle commande reçue !', {
+        description: `Commande de ${latestOrder.customerName}`
+      });
     }
-    
-    // Create a pleasant notification sound
-    const oscillator1 = ctx.createOscillator();
-    const oscillator2 = ctx.createOscillator();
-    const gainNode = ctx.createGain();
-    
-    oscillator1.connect(gainNode);
-    oscillator2.connect(gainNode);
-    gainNode.connect(ctx.destination);
-    
-    oscillator1.frequency.setValueAtTime(880, ctx.currentTime); // A5
-    oscillator2.frequency.setValueAtTime(1108.73, ctx.currentTime); // C#6
-    oscillator1.type = 'sine';
-    oscillator2.type = 'sine';
-    
-    gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
-    
-    oscillator1.start(ctx.currentTime);
-    oscillator2.start(ctx.currentTime);
-    oscillator1.stop(ctx.currentTime + 0.5);
-    oscillator2.stop(ctx.currentTime + 0.5);
-  };
-
-  // Simulate new order arrival (for demo)
-  const simulateNewOrder = () => {
-    const newOrder: Order = {
-      id: String(orders.length + 1),
-      customerName: 'Nouveau Client',
-      customerPhone: '06 00 00 00 00',
-      pickupTime: '21:00',
-      items: [
-        { name: 'Mexicaine', quantity: 1, price: 25, size: 'Méga' }
-      ],
-      total: 25,
-      createdAt: new Date().toISOString(),
-      status: 'pending'
-    };
-    setOrders(prev => [newOrder, ...prev]);
-    playNotificationSound();
-    toast.success('🍕 Nouvelle commande reçue !', {
-      description: `Commande de ${newOrder.customerName}`
-    });
-  };
+    previousOrderCountRef.current = orders.length;
+  }, [orders.length, isAuthenticated]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -153,14 +38,13 @@ const Admin: React.FC = () => {
     }
   };
 
-  const updateOrderStatus = (orderId: string, newStatus: Order['status']) => {
-    setOrders(prev => prev.map(order => 
-      order.id === orderId ? { ...order, status: newStatus } : order
-    ));
+  const handleUpdateStatus = (orderId: string, newStatus: Order['status']) => {
+    updateOrderStatus(orderId, newStatus);
     
     const statusMessages = {
       ready: 'Commande marquée comme prête',
-      completed: 'Commande marquée comme récupérée'
+      completed: 'Commande marquée comme récupérée',
+      pending: 'Statut mis à jour'
     };
     
     toast.success(statusMessages[newStatus] || 'Statut mis à jour');
@@ -271,14 +155,7 @@ const Admin: React.FC = () => {
         </div>
       </header>
 
-      {/* Content */}
       <main className="container mx-auto px-4 py-8">
-        {/* Demo button */}
-        <div className="mb-6">
-          <Button onClick={simulateNewOrder} variant="outline" size="sm">
-            🔔 Simuler une nouvelle commande
-          </Button>
-        </div>
 
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
@@ -420,7 +297,7 @@ const Admin: React.FC = () => {
                         <Button
                           size="sm"
                           className="bg-green-500 hover:bg-green-600 text-white"
-                          onClick={() => updateOrderStatus(order.id, 'ready')}
+                          onClick={() => handleUpdateStatus(order.id, 'ready')}
                         >
                           <Check className="w-4 h-4 mr-1" />
                           Prête
@@ -430,7 +307,7 @@ const Admin: React.FC = () => {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => updateOrderStatus(order.id, 'completed')}
+                          onClick={() => handleUpdateStatus(order.id, 'completed')}
                         >
                           <Package className="w-4 h-4 mr-1" />
                           Récupérée
