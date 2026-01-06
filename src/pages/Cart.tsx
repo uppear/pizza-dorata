@@ -7,12 +7,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useCart } from '@/contexts/CartContext';
+import { useOrders } from '@/contexts/OrderContext';
 import { Trash2, Plus, Minus, ShoppingCart, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const Cart: React.FC = () => {
   const navigate = useNavigate();
   const { items, updateQuantity, removeItem, clearCart, total, itemCount } = useCart();
+  const { addOrder } = useOrders();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderConfirmed, setOrderConfirmed] = useState(false);
   const [formData, setFormData] = useState({
@@ -58,12 +60,27 @@ const Cart: React.FC = () => {
 
     setIsSubmitting(true);
 
-    // Simulate order submission
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    // Create order and send to admin dashboard
+    addOrder({
+      customerName: formData.firstName,
+      customerPhone: formData.phone,
+      pickupTime: formData.pickupTime,
+      items: items.map(item => ({
+        name: item.name,
+        quantity: item.quantity,
+        price: item.price,
+        size: item.size === 'senior' ? 'Sénior' : item.size === 'mega' ? 'Méga' : undefined,
+      })),
+      total,
+    });
+
+    // Small delay for UX
+    await new Promise(resolve => setTimeout(resolve, 500));
 
     setOrderConfirmed(true);
     clearCart();
     setIsSubmitting(false);
+    toast.success('Commande envoyée !');
   };
 
   if (orderConfirmed) {
