@@ -1,86 +1,39 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { ShoppingBag, Clock, Phone, User, Check, Package, Euro, Users, TrendingUp, Volume2, VolumeX, LogOut } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Lock, ShoppingBag, Clock, Phone, User, Check, Package, Euro, Users, TrendingUp, Volume2, VolumeX } from 'lucide-react';
 import { toast } from 'sonner';
 import { useOrders, Order } from '@/contexts/OrderContext';
-import { supabase } from '@/integrations/supabase/client';
-import { User as SupabaseUser, Session } from '@supabase/supabase-js';
+
+const ADMIN_PIN = "1620";
 
 const Admin: React.FC = () => {
-  const navigate = useNavigate();
   const { orders, updateOrderStatus, soundEnabled, setSoundEnabled } = useOrders();
-  const [user, setUser] = useState<SupabaseUser | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [pin, setPin] = useState('');
+  const [error, setError] = useState('');
   const previousOrderCountRef = useRef<number>(orders.length);
-
-  useEffect(() => {
-    // Set up auth state listener first
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-
-        if (session?.user) {
-          // Defer the role check to avoid deadlock
-          setTimeout(() => {
-            checkAdminRole(session.user.id);
-          }, 0);
-        } else {
-          setIsAdmin(false);
-          setLoading(false);
-        }
-      }
-    );
-
-    // Then check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-
-      if (session?.user) {
-        checkAdminRole(session.user.id);
-      } else {
-        setLoading(false);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const checkAdminRole = async (userId: string) => {
-    const { data, error } = await supabase.rpc('has_role', {
-      _user_id: userId,
-      _role: 'admin'
-    });
-
-    if (data === true) {
-      setIsAdmin(true);
-    } else {
-      setIsAdmin(false);
-      navigate('/admin-auth');
-    }
-    setLoading(false);
-  };
 
   // Watch for new orders and show toast
   useEffect(() => {
-    if (orders.length > previousOrderCountRef.current && isAdmin) {
+    if (orders.length > previousOrderCountRef.current && isAuthenticated) {
       const latestOrder = orders[0];
       toast.success('🍕 Nouvelle commande reçue !', {
         description: `Commande de ${latestOrder.customerName}`
       });
     }
     previousOrderCountRef.current = orders.length;
-  }, [orders.length, isAdmin]);
+  }, [orders.length, isAuthenticated]);
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    toast.success('Déconnexion réussie');
-    navigate('/admin-auth');
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (pin === ADMIN_PIN) {
+      setIsAuthenticated(true);
+      setError('');
+    } else {
+      setError('Code PIN incorrect');
+    }
   };
 
   const handleUpdateStatus = (orderId: string, newStatus: Order['status']) => {
@@ -120,16 +73,39 @@ const Admin: React.FC = () => {
   const pendingOrders = orders.filter(o => o.status === 'pending').length;
   const readyOrders = orders.filter(o => o.status === 'ready').length;
 
-  if (loading) {
+  if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="w-16 h-16 mx-auto mb-4 gradient-gold rounded-full flex items-center justify-center">
+              <Lock className="w-8 h-8 text-secondary-foreground" />
+            </div>
+            <CardTitle className="font-display text-2xl">Accès Administration</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div>
+                <Input
+                  type="password"
+                  placeholder="Code PIN"
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value)}
+                  className="text-center text-2xl tracking-widest"
+                  maxLength={4}
+                />
+              </div>
+              {error && (
+                <p className="text-destructive text-sm text-center">{error}</p>
+              )}
+              <Button type="submit" variant="gold" className="w-full">
+                Accéder au dashboard
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
       </div>
     );
-  }
-
-  if (!isAdmin) {
-    return null;
   }
 
   return (
@@ -147,15 +123,6 @@ const Admin: React.FC = () => {
               title={soundEnabled ? 'Désactiver le son' : 'Activer le son'}
             >
               {soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-primary-foreground hover:text-secondary"
-              onClick={handleLogout}
-              title="Déconnexion"
-            >
-              <LogOut className="w-5 h-5" />
             </Button>
           </div>
         </div>
