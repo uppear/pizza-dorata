@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { menuData, PIZZA_PRICES, MenuCategory, MenuItem } from '@/data/menu';
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/contexts/CartContext';
-import { Plus, Minus, ShoppingCart, Check } from 'lucide-react';
+import { Plus, Check } from 'lucide-react';
 import { toast } from 'sonner';
+import productImage from '@/assets/product-placeholder.webp';
 
 const PizzaSizeSelector: React.FC<{
   item: MenuItem;
@@ -94,18 +95,26 @@ const ProductCard: React.FC<{
   };
 
   return (
-    <div className="bg-card rounded-xl p-4 shadow-soft hover:shadow-elevated transition-all duration-300 border border-border/50 flex flex-col">
-      <div className="flex-1">
-        <div className="flex justify-between items-start gap-2 mb-2">
-          <h4 className="font-display text-lg font-semibold text-foreground">{item.name}</h4>
-          {!hasSizes && item.price && (
-            <span className="font-bold text-primary whitespace-nowrap">
-              {item.price.toFixed(2).replace('.', ',')} €
-            </span>
-          )}
-        </div>
-        <p className="text-sm text-muted-foreground leading-relaxed">{item.description}</p>
+    <div className="bg-card rounded-xl overflow-hidden shadow-soft hover:shadow-elevated transition-all duration-300 border border-border/50 flex flex-col">
+      <div className="aspect-[4/3] overflow-hidden">
+        <img 
+          src={productImage} 
+          alt={item.name}
+          className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+        />
       </div>
+      <div className="p-4 flex-1 flex flex-col">
+        <div className="flex-1">
+          <div className="flex justify-between items-start gap-2 mb-2">
+            <h4 className="font-display text-lg font-semibold text-foreground">{item.name}</h4>
+            {!hasSizes && item.price && (
+              <span className="font-bold text-primary whitespace-nowrap">
+                {item.price.toFixed(2).replace('.', ',')} €
+              </span>
+            )}
+          </div>
+          <p className="text-sm text-muted-foreground leading-relaxed">{item.description}</p>
+        </div>
 
       {hasSizes ? (
         <PizzaSizeSelector item={item} onAdd={handleAddToCart} />
@@ -127,6 +136,7 @@ const ProductCard: React.FC<{
           )}
         </Button>
       )}
+      </div>
     </div>
   );
 };
