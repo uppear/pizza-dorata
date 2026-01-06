@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 import { CartProvider } from "@/contexts/CartContext";
 import Index from "./pages/Index";
+import Order from "./pages/Order";
 import Cart from "./pages/Cart";
 import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
@@ -22,6 +23,7 @@ const App = () => (
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Index />} />
+              <Route path="/commander" element={<Order />} />
               <Route path="/panier" element={<Cart />} />
               <Route path="/admin" element={<Admin />} />
               <Route path="*" element={<NotFound />} />
