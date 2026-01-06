@@ -10,7 +10,6 @@ import Index from "./pages/Index";
 import Order from "./pages/Order";
 import Cart from "./pages/Cart";
 import Admin from "./pages/Admin";
-import AdminAuth from "./pages/AdminAuth";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,7 +27,6 @@ const App = () => (
                 <Route path="/" element={<Index />} />
                 <Route path="/commander" element={<Order />} />
                 <Route path="/panier" element={<Cart />} />
-                <Route path="/admin-auth" element={<AdminAuth />} />
                 <Route path="/admin" element={<Admin />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
