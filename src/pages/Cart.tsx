@@ -6,10 +6,27 @@ import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useCart } from '@/contexts/CartContext';
 import { useOrders } from '@/contexts/OrderContext';
 import { Trash2, Plus, Minus, ShoppingCart, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
+
+// Créneaux horaires disponibles
+const pickupSlots = [
+  { value: '11:30', label: '11h30' },
+  { value: '12:00', label: '12h00' },
+  { value: '12:30', label: '12h30' },
+  { value: '13:00', label: '13h00' },
+  { value: '13:30', label: '13h30' },
+  { value: '18:30', label: '18h30' },
+  { value: '19:00', label: '19h00' },
+  { value: '19:30', label: '19h30' },
+  { value: '20:00', label: '20h00' },
+  { value: '20:30', label: '20h30' },
+  { value: '21:00', label: '21h00' },
+  { value: '21:30', label: '21h30' },
+];
 
 const Cart: React.FC = () => {
   const navigate = useNavigate();
@@ -279,13 +296,21 @@ const Cart: React.FC = () => {
                         <Label htmlFor="pickupTime" className="text-foreground">
                           Heure de retrait *
                         </Label>
-                        <Input
-                          id="pickupTime"
-                          type="time"
+                        <Select
                           value={formData.pickupTime}
-                          onChange={(e) => setFormData({ ...formData, pickupTime: e.target.value })}
-                          className={errors.pickupTime ? 'border-destructive' : ''}
-                        />
+                          onValueChange={(value) => setFormData({ ...formData, pickupTime: value })}
+                        >
+                          <SelectTrigger className={errors.pickupTime ? 'border-destructive' : ''}>
+                            <SelectValue placeholder="Choisir un créneau" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {pickupSlots.map((slot) => (
+                              <SelectItem key={slot.value} value={slot.value}>
+                                {slot.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                         {errors.pickupTime && (
                           <p className="text-sm text-destructive mt-1">{errors.pickupTime}</p>
                         )}
