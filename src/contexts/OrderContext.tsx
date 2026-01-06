@@ -98,7 +98,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Error fetching orders:', error);
+      console.error('Failed to fetch orders');
       return;
     }
 
@@ -159,8 +159,8 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       }]);
 
     if (error) {
-      console.error('Error adding order:', error);
-      throw error;
+      console.error('Failed to add order');
+      throw new Error('Failed to place order. Please try again.');
     }
   }, []);
 
@@ -171,8 +171,8 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       .eq('id', orderId);
 
     if (error) {
-      console.error('Error updating order status:', error);
-      throw error;
+      console.error('Failed to update order status');
+      throw new Error('Failed to update order status. Please try again.');
     }
   }, []);
 
