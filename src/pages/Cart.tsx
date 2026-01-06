@@ -60,27 +60,29 @@ const Cart: React.FC = () => {
 
     setIsSubmitting(true);
 
-    // Create order and send to admin dashboard
-    addOrder({
-      customerName: formData.firstName,
-      customerPhone: formData.phone,
-      pickupTime: formData.pickupTime,
-      items: items.map(item => ({
-        name: item.name,
-        quantity: item.quantity,
-        price: item.price,
-        size: item.size === 'senior' ? 'Sénior' : item.size === 'mega' ? 'Méga' : undefined,
-      })),
-      total,
-    });
+    try {
+      // Create order and send to database
+      await addOrder({
+        customerName: formData.firstName,
+        customerPhone: formData.phone,
+        pickupTime: formData.pickupTime,
+        items: items.map(item => ({
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+          size: item.size === 'senior' ? 'Sénior' : item.size === 'mega' ? 'Méga' : undefined,
+        })),
+        total,
+      });
 
-    // Small delay for UX
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    setOrderConfirmed(true);
-    clearCart();
-    setIsSubmitting(false);
-    toast.success('Commande envoyée !');
+      setOrderConfirmed(true);
+      clearCart();
+      toast.success('Commande envoyée !');
+    } catch (error) {
+      toast.error('Erreur lors de l\'envoi de la commande');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (orderConfirmed) {
