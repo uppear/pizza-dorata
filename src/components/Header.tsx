@@ -9,18 +9,7 @@ const Header: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const scrollToMenu = () => {
-    if (location.pathname !== '/') {
-      navigate('/');
-      setTimeout(() => {
-        const menuSection = document.getElementById('menu');
-        menuSection?.scrollIntoView({ behavior: 'smooth' });
-      }, 100);
-    } else {
-      const menuSection = document.getElementById('menu');
-      menuSection?.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
+  const isOrderPage = location.pathname === '/commander';
 
   return (
     <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b border-border shadow-soft">
@@ -33,7 +22,7 @@ const Header: React.FC = () => {
             <Pizza className="w-6 h-6 text-primary-foreground" />
           </div>
           <div className="flex flex-col">
-            <span className="font-display text-xl font-bold text-primary">Pizza Dorata</span>
+            <span className="font-display text-xl font-bold text-primary">Dorata Pizza</span>
             <span className="text-xs text-muted-foreground hidden sm:block">Fleury-les-Aubrais</span>
           </div>
         </div>
@@ -41,13 +30,13 @@ const Header: React.FC = () => {
         <nav className="hidden md:flex items-center gap-6">
           <button 
             onClick={() => navigate('/')} 
-            className="text-foreground hover:text-primary transition-colors font-medium"
+            className={`transition-colors font-medium ${location.pathname === '/' ? 'text-primary' : 'text-foreground hover:text-primary'}`}
           >
             Accueil
           </button>
           <button 
-            onClick={scrollToMenu} 
-            className="text-foreground hover:text-primary transition-colors font-medium"
+            onClick={() => navigate('/commander')} 
+            className={`transition-colors font-medium ${isOrderPage ? 'text-primary' : 'text-foreground hover:text-primary'}`}
           >
             Menu
           </button>
@@ -64,7 +53,7 @@ const Header: React.FC = () => {
           <Button 
             variant="hero" 
             size="sm"
-            onClick={scrollToMenu}
+            onClick={() => navigate('/commander')}
             className="hidden sm:flex"
           >
             Commander
