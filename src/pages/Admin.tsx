@@ -103,15 +103,6 @@ const Admin: React.FC = () => {
               <Button type="submit" variant="gold" className="w-full">
                 Accéder au dashboard
               </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                className="w-full"
-                onClick={() => navigate('/')}
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Retour au site
-              </Button>
             </form>
           </CardContent>
         </Card>
@@ -134,22 +125,6 @@ const Admin: React.FC = () => {
               title={soundEnabled ? 'Désactiver le son' : 'Activer le son'}
             >
               {soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-primary-foreground hover:text-secondary"
-              onClick={() => setIsAuthenticated(false)}
-            >
-              Déconnexion
-            </Button>
-            <Button
-              variant="gold"
-              size="sm"
-              onClick={() => navigate('/')}
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Retour au site
             </Button>
           </div>
         </div>
