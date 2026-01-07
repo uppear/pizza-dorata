@@ -146,15 +146,24 @@ const Admin: React.FC = () => {
           schema: 'public',
           table: 'orders',
         },
-        () => {
+        (payload) => {
+          console.log('Realtime event received:', payload);
           // Refetch when any change happens
           fetchOrders();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Realtime subscription status:', status);
+      });
+
+    // Also poll every 3 seconds as fallback for realtime
+    const pollInterval = setInterval(() => {
+      fetchOrders();
+    }, 3000);
 
     return () => {
       supabase.removeChannel(channel);
+      clearInterval(pollInterval);
     };
   }, [isAuthenticated, fetchOrders]);
 
