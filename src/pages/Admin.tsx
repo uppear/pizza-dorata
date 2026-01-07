@@ -1,51 +1,235 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Lock, ShoppingBag, Clock, Phone, User, Check, Package, Euro, Users, TrendingUp, Volume2, VolumeX } from 'lucide-react';
+import { Lock, ShoppingBag, Clock, Phone, User, Check, Package, Euro, Users, TrendingUp, Volume2, VolumeX, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useOrders, Order } from '@/contexts/OrderContext';
+import { supabase } from '@/integrations/supabase/client';
 
 const ADMIN_PIN = "1620";
 
+interface OrderItem {
+  name: string;
+  quantity: number;
+  price: number;
+  size?: string;
+}
+
+interface Order {
+  id: string;
+  customerName: string;
+  customerPhone: string;
+  pickupTime: string;
+  items: OrderItem[];
+  total: number;
+  createdAt: string;
+  status: 'pending' | 'ready' | 'completed';
+}
+
 const Admin: React.FC = () => {
-  const { orders, updateOrderStatus, soundEnabled, setSoundEnabled } = useOrders();
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
-  const previousOrderCountRef = useRef<number>(orders.length);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const previousOrderCountRef = useRef<number>(0);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const storedPinRef = useRef<string>('');
 
-  // Watch for new orders and show toast
+  // Initialize audio context
   useEffect(() => {
-    if (orders.length > previousOrderCountRef.current && isAuthenticated) {
-      const latestOrder = orders[0];
-      toast.success('🍕 Nouvelle commande reçue !', {
-        description: `Commande de ${latestOrder.customerName}`
-      });
-    }
-    previousOrderCountRef.current = orders.length;
-  }, [orders.length, isAuthenticated]);
+    audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    return () => {
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+      }
+    };
+  }, []);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const playNotificationSound = useCallback(() => {
+    if (!soundEnabled || !audioContextRef.current) return;
+    
+    const ctx = audioContextRef.current;
+    
+    if (ctx.state === 'suspended') {
+      ctx.resume();
+    }
+    
+    const oscillator1 = ctx.createOscillator();
+    const oscillator2 = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+    
+    oscillator1.connect(gainNode);
+    oscillator2.connect(gainNode);
+    gainNode.connect(ctx.destination);
+    
+    oscillator1.frequency.setValueAtTime(880, ctx.currentTime);
+    oscillator2.frequency.setValueAtTime(1108.73, ctx.currentTime);
+    oscillator1.type = 'sine';
+    oscillator2.type = 'sine';
+    
+    gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+    
+    oscillator1.start(ctx.currentTime);
+    oscillator2.start(ctx.currentTime);
+    oscillator1.stop(ctx.currentTime + 0.5);
+    oscillator2.stop(ctx.currentTime + 0.5);
+  }, [soundEnabled]);
+
+  // Map database row to Order type
+  const mapDbToOrder = (row: any): Order => ({
+    id: row.id,
+    customerName: row.customer_name,
+    customerPhone: row.customer_phone,
+    pickupTime: row.pickup_time,
+    items: row.items as OrderItem[],
+    total: Number(row.total),
+    createdAt: row.created_at,
+    status: row.status as Order['status'],
+  });
+
+  // Fetch orders via edge function
+  const fetchOrders = useCallback(async () => {
+    if (!storedPinRef.current) return;
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-orders', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: null,
+      });
+
+      // Use query params approach via direct fetch
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-orders?pin=${storedPinRef.current}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch orders');
+      }
+
+      const result = await response.json();
+      const mappedOrders = result.orders.map(mapDbToOrder);
+      
+      // Check for new orders
+      if (mappedOrders.length > previousOrderCountRef.current && previousOrderCountRef.current > 0) {
+        playNotificationSound();
+        const latestOrder = mappedOrders[0];
+        toast.success('🍕 Nouvelle commande reçue !', {
+          description: `Commande de ${latestOrder.customerName}`
+        });
+      }
+      previousOrderCountRef.current = mappedOrders.length;
+      
+      setOrders(mappedOrders);
+      setLoading(false);
+    } catch (err) {
+      console.error('Error fetching orders:', err);
+      setLoading(false);
+    }
+  }, [playNotificationSound]);
+
+  // Subscribe to realtime updates and poll
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    fetchOrders();
+
+    // Set up realtime subscription for notifications
+    const channel = supabase
+      .channel('admin-orders-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'orders',
+        },
+        () => {
+          // Refetch when any change happens
+          fetchOrders();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [isAuthenticated, fetchOrders]);
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (pin === ADMIN_PIN) {
-      setIsAuthenticated(true);
-      setError('');
-    } else {
-      setError('Code PIN incorrect');
+    
+    // Verify PIN via edge function
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-orders?pin=${pin}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (response.ok) {
+        storedPinRef.current = pin;
+        setIsAuthenticated(true);
+        setError('');
+      } else {
+        setError('Code PIN incorrect');
+      }
+    } catch (err) {
+      setError('Erreur de connexion');
     }
   };
 
-  const handleUpdateStatus = (orderId: string, newStatus: Order['status']) => {
-    updateOrderStatus(orderId, newStatus);
-    
-    const statusMessages = {
-      ready: 'Commande marquée comme prête',
-      completed: 'Commande marquée comme récupérée',
-      pending: 'Statut mis à jour'
-    };
-    
-    toast.success(statusMessages[newStatus] || 'Statut mis à jour');
+  const handleUpdateStatus = async (orderId: string, newStatus: Order['status']) => {
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-orders`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            pin: storedPinRef.current,
+            orderId,
+            status: newStatus,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to update');
+      }
+
+      // Update local state
+      setOrders(prev => prev.map(order => 
+        order.id === orderId ? { ...order, status: newStatus } : order
+      ));
+      
+      const statusMessages = {
+        ready: 'Commande marquée comme prête',
+        completed: 'Commande marquée comme récupérée',
+        pending: 'Statut mis à jour'
+      };
+      
+      toast.success(statusMessages[newStatus] || 'Statut mis à jour');
+    } catch (err) {
+      toast.error('Erreur lors de la mise à jour');
+    }
   };
 
   const getStatusColor = (status: Order['status']) => {
@@ -104,6 +288,14 @@ const Admin: React.FC = () => {
             </form>
           </CardContent>
         </Card>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -224,7 +416,7 @@ const Admin: React.FC = () => {
                       <span className={`px-3 py-1 rounded-full text-white text-sm font-medium ${getStatusColor(order.status)}`}>
                         {getStatusLabel(order.status)}
                       </span>
-                      <span className="text-muted-foreground text-sm">#{order.id}</span>
+                      <span className="text-muted-foreground text-sm">#{order.id.slice(0, 8)}</span>
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
