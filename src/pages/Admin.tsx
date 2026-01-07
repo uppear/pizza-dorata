@@ -95,15 +95,6 @@ const Admin: React.FC = () => {
     if (!storedPinRef.current) return;
     
     try {
-      const { data, error } = await supabase.functions.invoke('admin-orders', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: null,
-      });
-
-      // Use query params approach via direct fetch
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-orders?pin=${storedPinRef.current}`,
         {
