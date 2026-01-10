@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
@@ -40,6 +40,11 @@ const Cart: React.FC = () => {
     pickupTime: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Scroll to top when component mounts
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
